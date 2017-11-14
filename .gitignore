@@ -1,0 +1,7 @@
+*~
+*.swp
+*.bak*
+*.orig
+xslog/*
+xslog-*
+xslog.*
