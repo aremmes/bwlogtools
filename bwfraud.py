@@ -188,6 +188,9 @@ optional arguments:
   -m REGEX, --match REGEX
                         Pattern to match
   -d, --dir DIR         Direction of message (IN, OUT)
+  -x, --xtract WARN:CRIT
+                        Extract calls exceeding thresholds
+  -s, --span MINS       Time span for threshold count
 """
   print(usage_str)
 
@@ -195,8 +198,8 @@ def parse_argv():
 
   arg_dict = {}
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:",
-                          ["help","match=","dir=","toip="])
+    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:x:s:",
+                 ["help","match=","dir=","toip=","xtract=","span="])
   except getopt.GetoptError:
     print("Error parsing command line options:")
     usage()
@@ -212,6 +215,10 @@ def parse_argv():
       arg_dict['dir'] = a
     elif o in ("-t", "--toip"):
       arg_dict['toip'] = a
+    elif o in ("-x", "--xtract"):
+      arg_dict['xtract'] = split( a, ":" )
+    elif o in ("-s", "--span"):
+      arg_dict['span'] = a
     else:
       assert False, "unhandled option"
 
