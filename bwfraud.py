@@ -13,6 +13,7 @@ import re
 import sys
 from itertools import groupby
 from datetime import datetime
+from datetime import timedelta
 import time
 import struct
 import socket
@@ -188,40 +189,11 @@ optional arguments:
   -m REGEX, --match REGEX
                         Pattern to match
   -d, --dir DIR         Direction of message (IN, OUT)
+  -x, --xtract WARN:CRIT
+                        Extract calls exceeding thresholds
+  -s, --span MINS       Time span for threshold count
 """
   print(usage_str)
-
-def parse_argv():
-
-  arg_dict = {}
-  try:
-    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:",
-                          ["help","match=","dir=","toip="])
-  except getopt.GetoptError:
-    print("Error parsing command line options:")
-    usage()
-    sys.exit()
-
-  for o, a in opts:
-    if o in ("-h","--help"):
-      usage()
-      sys.exit()
-    elif o in ("-m", "--match"):
-      arg_dict['match'] = a
-    elif o in ("-d", "--dir") and a in ('IN','OUT'):
-      arg_dict['dir'] = a
-    elif o in ("-t", "--toip"):
-      arg_dict['toip'] = a
-    else:
-      assert False, "unhandled option"
-
-  if len(args) != 1:
-    print("Error: XSLog not specified!")
-    usage()
-    sys.exit()
-
-  arg_dict['XSLog'] = args[0]
-  return arg_dict
 
 def group_by_caller(siplogs):
   bycaller = dict()
@@ -243,14 +215,57 @@ def count_by_range( logs, start, end ):
   return count
 
 def test_call_thresholds( siplog, warnthres, critthres, spanmins ):
-  span = datetime.timedelta(minutes=spanmins)
+  span = timedelta(minutes=int(spanmins))
+  events = list()
+  level = None
   for log in siplog:
-    count = count_by_range( siplog, log.datetime - warn, log.datetime )
+    count = count_by_range( siplog, log.datetime - span, log.datetime )
     if count >= warnthres and count < critthres:
-      return ('warn', log.datetime)
+      if level != 'warn':
+        events.append( ('warn', log.datetime) )
+      level = 'warn'
     elif count >= critthres:
-      return ('crit', log.datetime)
-  return None
+      if level != 'crit':
+        events.append( ('crit', log.datetime) )
+      level = 'crit'
+    else:
+      level = None
+  return events
+
+def parse_argv():
+  arg_dict = {}
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:x:s:",
+                 ["help","match=","dir=","toip=","xtract=","span="])
+  except getopt.GetoptError:
+    print("Error parsing command line options:")
+    usage()
+    sys.exit()
+
+  for o, a in opts:
+    if o in ("-h","--help"):
+      usage()
+      sys.exit()
+    elif o in ("-m", "--match"):
+      arg_dict['match'] = a
+    elif o in ("-d", "--dir") and a in ('IN','OUT'):
+      arg_dict['dir'] = a
+    elif o in ("-t", "--toip"):
+      arg_dict['toip'] = a
+    elif o in ("-x", "--xtract") and re.match( "\d+:\d+", a ):
+      arg_dict['xtract'] = map( int, a.split( ":" ) )
+    elif o in ("-s", "--span") and re.match( "\d+", a ):
+      arg_dict['span'] = a
+    else:
+      assert False, "unhandled option"
+
+  if len(args) != 1:
+    print("Error: XSLog not specified!")
+    usage()
+    sys.exit()
+
+  arg_dict['XSLog'] = args[0]
+  return arg_dict
 
 def main(argv):
   args = parse_argv()
@@ -271,14 +286,19 @@ def main(argv):
     args['toip'] if 'toip' in args else None)
   bycaller = group_by_caller( siplogs )
 
-  #for log in siplogs:
-  #  print log
-  for tn in bycaller:
-  #  if 'dir' in args:
-  #    if log.direction == args['dir']:
-  #      print log
-  #  else:
-    print( "{0}\t{1}".format( tn, len( bycaller[tn] ) ) )
+  if 'xtract' in args:
+    if 'span' not in args:
+      print( "Error: span must be provided if requesting extract" )
+      usage()
+      sys.exit()
+    ( warnthres, critthres ) = args['xtract']
+    spanmins = args['span']
+    for tn in bycaller:
+      for ( level, evttime ) in test_call_thresholds( bycaller[tn], warnthres, critthres, spanmins ):
+        print( "{0}\t{1}\t{2}".format( tn, level, evttime ) )
+  else:
+    for tn in bycaller:
+      print( "{0}\t{1}".format( tn, len( bycaller[tn] ) ) )
 
 if __name__ == '__main__':
   main(sys.argv)
