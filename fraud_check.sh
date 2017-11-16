@@ -41,6 +41,10 @@ for log in $(${DIR}/log_fisher.py); do
     cat $log >> ${COMBINED}
 done
 
+if [ ! -e ${COMBINED} ]; then
+    exit
+fi
+
 rm -f /var/tmp/frauds.txt
 nice ${DIR}/bwfraud.py -m "^INVITE sip:011" -d OUT -t"${NETWORK_SERVER}" -s ${SPAN} -x ${WARN}:${CRIT} ${COMBINED} > /var/tmp/frauds.txt
 cat /var/tmp/frauds.txt >> ${MESSAGE_FILE}
