@@ -7,26 +7,30 @@ USAGE
 =====
 
 ```
-usage: bwxslogtool.py [-h] [-p FILENAME] [-m REGEX] [--bwip BWIP] XSLog
+usage: bwfraud.py [-h] [-m REGEX] [-d DIR] [-t REGEX] [-x W:C] [-s MINS] [-w FILE] [-D DAYS] XSLog
 
-currently this tool prints sip logs to STDOUT that match the
-pattern defined in the -m option, or if -p is specified it will print the sip
-messages to the specified pcap file
+bwfraud tool analyzes BroadWorks XS logs for call patterns
+to detect possible unauthorized call usage
 
 positional arguments:
   XSLog                 XSLog to parse
 
 optional arguments:
   -h, --help            show this help message and exit
-  -p FILENAME, --pcap FILENAME
-                        PCAP file to write logs to.
   -m REGEX, --match REGEX
                         Pattern to match
-  --bwip BWIP           ip address of the broadworks server to be used when
-                        writing to pcap files
+  -d, --dir DIR         Direction of message (IN, OUT)
+  -t, --to REGEX        Pattern to match To: header
+  -x, --xtract WARN:CRIT
+                        Extract calls exceeding thresholds
+  -s, --span MINS       Time span for threshold count
+  -w, --whitelist FILE  Use a whitelist configured in FILE
+  -d, --days DAYS       When using whitelist, number of DAYS
+                        to keep an entry in the automatic
+                        whitelist (default 14)
 ```
 
-Without the -p flag the script simply prints the sip messages to the terminal, and you can use the -m flag to search for specific messages, something like the following would print all SIP INVITE messages in the given file:
+The -m flag takes a regular expression to match against the messages. Something like the following would print all SIP INVITE messages in the given file:
 
 ```
 ./bwxslogtool.py -m "^INVITE" XSLogFile
@@ -35,27 +39,10 @@ Then if you wanted to see a call with a specific call-id you would do something 
 ```
 ./bwxslogtool.py -m "<YOUR_CALL_ID_HERE>" XSLogFile
 ```
-Basically the -m flag takes either text and searches for sip messages containing that text, or for advanced users you can use regular expressions.
+The -d flag accepts either IN or OUT, to select only incoming or only outgoing calls from the given log file, respectively.
 
-The -p flag followed by a filename will cause the script to write all sip messages to the filename in libpcap format so that you can analyze the logs using wireshark, snoop, tcpdump or your favorite pcap analyzer. 
+The -t flag accepts a regular expression to match against the To: header. This is a more specific form of the -m flag.
 
-I added the '--bwip' option because the logs don't contain the IP address of the broadworks server that is sending/receiving  the SIP messages.  If you want the PCAP to reflect the appropriate broadworks server, then use this flag
+The -x flag changes the tool's behavior to count the frequency of log entries selected for each calling number over a time period specified via the -s flag. The accepted values consist of the warning and critical thresholds over the specified time span. When combined with the -m flag to select INVITE events, one can use this mode to report on excessive call usage.
 
-The following is an example of usage:
-
-```
-./bwxslogtool.py -p out.pcap --bwip 10.10.10.1 XSLogFileName
-```
-The above command would write all of the SIP messages in the log specified by the XSLogFileName to the file 'out.pcap', and would use 10.10.10.1 as the IP address of the broadworks server for the PCAP.
-
-NOTES
-=====
-My testing was done with python 2.7... I got enough people complaining about issues with python 2.4 that I went ahead and made some major changes to ensure backwards compatibility (Including rolling my own PCAP writing code to avoid libraries that aren't included in the stdlib). 
-
-
-This has been tested on various flavors of linux (Redhat, Ubuntu, SUSE) as well as OSX.  I have not tested on windows, but welcome any feedback.
-Unfortunately I had to use a third party library that is not included in the python standard library (scapy) so that will need to be included. I will be maintaining this and adding any features that folks find useful, please report any bugs on github. 
-
-I only have broadworks 17sp3 in the lab so that is all I tested this on, but I know that the log format hasn't changed in a while.  If someone sends me logs from R18 or R19 i'd be more than happy to test, or you can
-
-Please file bugs on github as you find them, and I will fix!
+The -w flag supplements the -x flag through the use of whitelisting. The file specified in FILE will contain a JSON object pointing to two whitelist files for the automatic and manual whitelist files (also JSON format). The automatic whitelist will populate automatically with entries reported by the -x flag and will expire after the number of days specified with the -d flag (default 14 days).

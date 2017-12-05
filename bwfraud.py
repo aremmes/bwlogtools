@@ -11,13 +11,16 @@
 import os.path
 import re
 import sys
+import json
 from itertools import groupby
 from datetime import datetime
+from datetime import date
 from datetime import timedelta
 import time
 import getopt
+from WhiteList import WhiteList
 
-VERSION=.02
+VERSION=.03
 
 class XSLogEntry(object):
   _siplogfmt = re.compile(r'^(?:udp|tcp)(?:\ )'
@@ -172,28 +175,6 @@ class XSLog(object):
     rawlogs =  zip(keys, groups)
     return [XSLogEntry.factory(rl) for rl in rawlogs]
 
-def usage():
-  usage_str = """
-usage: bwfraud.py [-h] [-p FILENAME] [-m REGEX] [--bwip BWIP] XSLog
-
-bwfraud tooly analyzes BroadWorks XS logs for call patterns
-to detect possible unauthorized call usage
-
-positional arguments:
-  XSLog                 XSLog to parse
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -m REGEX, --match REGEX
-                        Pattern to match
-  -d, --dir DIR         Direction of message (IN, OUT)
-  -t, --to REGEX        Pattern to match To: header
-  -x, --xtract WARN:CRIT
-                        Extract calls exceeding thresholds
-  -s, --span MINS       Time span for threshold count
-"""
-  print(usage_str)
-
 def group_by_caller(siplogs):
   bycaller = dict()
   regex = "<sip:(?:011|\+)?(\d+)@.*"
@@ -214,7 +195,7 @@ def count_by_range( logs, start, end ):
   return count
 
 def test_call_thresholds( siplog, warnthres, critthres, spanmins ):
-  span = timedelta(minutes=int(spanmins))
+  span = timedelta(minutes=spanmins)
   events = list()
   level = None
   for log in siplog:
@@ -231,11 +212,37 @@ def test_call_thresholds( siplog, warnthres, critthres, spanmins ):
       level = None
   return events
 
+def usage():
+  usage_str = """
+usage: bwfraud.py [-h] [-m REGEX] [-d DIR] [-t REGEX] [-x W:C] [-s MINS] [-w FILE] [-D DAYS] XSLog
+
+bwfraud tooly analyzes BroadWorks XS logs for call patterns
+to detect possible unauthorized call usage
+
+positional arguments:
+  XSLog                 XSLog to parse
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m REGEX, --match REGEX
+                        Pattern to match
+  -d, --dir DIR         Direction of message (IN, OUT)
+  -t, --to REGEX        Pattern to match To: header
+  -x, --xtract WARN:CRIT
+                        Extract calls exceeding thresholds
+  -s, --span MINS       Time span for threshold count
+  -w, --whitelist FILE  Use a whitelist configured in FILE
+  -d, --days DAYS       When using whitelist, number of DAYS
+                        to keep an entry in the automatic
+                        whitelist (default 14)
+"""
+  print(usage_str)
+
 def parse_argv():
   arg_dict = {}
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:x:s:",
-                 ["help","match=","dir=","to=","xtract=","span="])
+    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:x:s:w:D:",
+      ["help","match=","dir=","to=","xtract=","span=", "whitelist=", "days="])
   except getopt.GetoptError:
     print("Error parsing command line options:")
     usage()
@@ -254,7 +261,11 @@ def parse_argv():
     elif o in ("-x", "--xtract") and re.match( "\d+:\d+", a ):
       arg_dict['xtract'] = map( int, a.split( ":" ) )
     elif o in ("-s", "--span") and re.match( "\d+", a ):
-      arg_dict['span'] = a
+      arg_dict['span'] = int(a)
+    elif o in ("-w", "--whitelist"):
+      arg_dict['whitelist'] = a
+    elif o in ("-D", "--days") and re.match( "\d+", a ):
+      arg_dict['days'] = int(a)
     else:
       assert False, "unhandled option"
 
@@ -266,13 +277,35 @@ def parse_argv():
   arg_dict['XSLog'] = args[0]
   return arg_dict
 
+def init_whitelists( wl_config ):
+  try:
+    cfile = open( wl_config, 'r' )
+    config = json.load( cfile )
+    cfile.close()
+  except IOError:
+    sys.exit( "Cannot open configuration file: {0}".format( wl_config ) )
+
+  awl = WhiteList( config['awl_path'] )
+  mwl = WhiteList( config['mwl_path'] )
+  today = date.today()
+  comp = lambda v: datetime.strptime( v, "%Y-%m-%d" ).date() <= date.today()
+  awl.cleanup( comp )
+  mwl.cleanup( comp )
+  mwl.save_list()
+  return ( awl, mwl )
+
 def main(argv):
   args = parse_argv()
+  awl = None
+  mwl = None
   
   if not os.path.isfile(args['XSLog']): 
     print("ERROR:  Cannot open XSLog: %s" % args['XSLog'])
     usage()
     sys.exit()
+
+  if 'whitelist' in args:
+    ( awl, mwl ) = init_whitelists( args['whitelist'] )
 
   try:
     xslog = XSLog(str(args['XSLog']))
@@ -292,9 +325,21 @@ def main(argv):
       sys.exit()
     ( warnthres, critthres ) = args['xtract']
     spanmins = args['span']
+    tempwl = list()
+    fortnight = date.today() + timedelta( days = 14 if not 'days' in args else args['days'] )
     for tn in bycaller:
       for ( level, evttime ) in test_call_thresholds( bycaller[tn], warnthres, critthres, spanmins ):
-        print( "{0}\t{1}\t{2}".format( tn, level, evttime ) )
+        if 'whitelist' in args:
+          if not awl.exists( tn ) and not mwl.exists( tn ):
+            print( "{0}\t{1}\t{2}".format( tn, level, evttime ) )
+            tempwl.append( tn )
+        else:
+          print( "{0}\t{1}\t{2}".format( tn, level, evttime ) )
+    if len( tempwl ) > 0:
+      for tn in tempwl:
+        if not awl.exists( tn ):
+          awl.set( tn, fortnight.isoformat() )
+      awl.save_list()
   else:
     for tn in bycaller:
       print( "{0}\t{1}".format( tn, len( bycaller[tn] ) ) )

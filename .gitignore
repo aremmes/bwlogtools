@@ -1,6 +1,7 @@
 *~
 *.swp
 *.bak*
+*.pyc
 *.orig
 xslog/*
 xslog-*
