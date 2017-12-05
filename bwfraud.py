@@ -15,8 +15,6 @@ from itertools import groupby
 from datetime import datetime
 from datetime import timedelta
 import time
-import struct
-import socket
 import getopt
 
 VERSION=.02
@@ -130,28 +128,28 @@ class XSLog(object):
   def __getitem__(self, key):
     return self.logs[key]
 
-  def siplogs(self, regex=None, dir=None, toip=None):
+  def siplogs(self, regex=None, dir=None, to=None):
     toreg = "<sip:(?:\+|011)?\d+@{0}"
     siplogs = [log for log in self.logs if log.type() == 'SipXSLogEntry']
-    if   regex == None and dir == None and toip == None: 
+    if   regex == None and dir == None and to == None: 
       return siplogs
-    elif regex != None and dir == None and toip == None:
+    elif regex != None and dir == None and to == None:
       return [siplog for siplog in siplogs if regex in siplog.sipmsg or re.search(regex, siplog.sipmsg)]
-    elif regex == None and dir != None and toip == None:
+    elif regex == None and dir != None and to == None:
       return [siplog for siplog in siplogs if siplog.direction == dir]
-    elif regex == None and dir == None and toip != None: 
-      return [siplog for siplog in siplogs if re.search(toreg.format(toip), siplog.headers['To'])]
-    elif regex != None and dir == None and toip != None:
+    elif regex == None and dir == None and to != None: 
+      return [siplog for siplog in siplogs if re.search(toreg.format(to), siplog.headers['To'])]
+    elif regex != None and dir == None and to != None:
       return [siplog for siplog in siplogs if regex in siplog.sipmsg or re.search(regex, siplog.sipmsg)]
-    elif regex == None and dir != None and toip != None:
+    elif regex == None and dir != None and to != None:
       return [siplog for siplog in siplogs if siplog.direction == dir
-        and re.search(toreg.format(toip), siplog.headers['To'])]
-    elif regex != None and dir != None and toip == None:
+        and re.search(toreg.format(to), siplog.headers['To'])]
+    elif regex != None and dir != None and to == None:
       return [siplog for siplog in siplogs if (regex in siplog.sipmsg or re.search(regex, siplog.sipmsg))
         and siplog.direction == dir ]
     else:
       return [siplog for siplog in siplogs if (regex in siplog.sipmsg or re.search(regex, siplog.sipmsg))
-        and siplog.direction == dir and re.search(toreg.format(toip), siplog.headers['To'])]
+        and siplog.direction == dir and re.search(toreg.format(to), siplog.headers['To'])]
 
   def parser(self, fn):
     groups = []
@@ -176,7 +174,7 @@ class XSLog(object):
 
 def usage():
   usage_str = """
-usage: arg.py [-h] [-p FILENAME] [-m REGEX] [--bwip BWIP] XSLog
+usage: bwfraud.py [-h] [-p FILENAME] [-m REGEX] [--bwip BWIP] XSLog
 
 bwfraud tooly analyzes BroadWorks XS logs for call patterns
 to detect possible unauthorized call usage
@@ -189,6 +187,7 @@ optional arguments:
   -m REGEX, --match REGEX
                         Pattern to match
   -d, --dir DIR         Direction of message (IN, OUT)
+  -t, --to REGEX        Pattern to match To: header
   -x, --xtract WARN:CRIT
                         Extract calls exceeding thresholds
   -s, --span MINS       Time span for threshold count
@@ -236,7 +235,7 @@ def parse_argv():
   arg_dict = {}
   try:
     opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:x:s:",
-                 ["help","match=","dir=","toip=","xtract=","span="])
+                 ["help","match=","dir=","to=","xtract=","span="])
   except getopt.GetoptError:
     print("Error parsing command line options:")
     usage()
@@ -250,8 +249,8 @@ def parse_argv():
       arg_dict['match'] = a
     elif o in ("-d", "--dir") and a in ('IN','OUT'):
       arg_dict['dir'] = a
-    elif o in ("-t", "--toip"):
-      arg_dict['toip'] = a
+    elif o in ("-t", "--to"):
+      arg_dict['to'] = a
     elif o in ("-x", "--xtract") and re.match( "\d+:\d+", a ):
       arg_dict['xtract'] = map( int, a.split( ":" ) )
     elif o in ("-s", "--span") and re.match( "\d+", a ):
@@ -283,7 +282,7 @@ def main(argv):
 
   siplogs = xslog.siplogs(args['match'] if 'match' in args else None,
     args['dir'] if 'dir' in args else None,
-    args['toip'] if 'toip' in args else None)
+    args['to'] if 'to' in args else None)
   bycaller = group_by_caller( siplogs )
 
   if 'xtract' in args:
