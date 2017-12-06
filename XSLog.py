@@ -114,7 +114,7 @@ class XSLog(object):
     return self.logs[key]
 
   def siplogs(self, regex=None, dir=None, to=None):
-    toreg = "<sip:(?:\+|011)?\d+@{0}"
+    toreg = "<sip:{0}"
     siplogs = [log for log in self.logs if log.type() == 'SipXSLogEntry']
     if   regex == None and dir == None and to == None: 
       return siplogs
