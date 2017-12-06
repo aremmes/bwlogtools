@@ -5,6 +5,6 @@
 *.pyc
 *.orig
 xslog/*
-xslog-*
-xslog.*
+xslog-combined.txt
+xslog.tar.gz
 *.2017*
