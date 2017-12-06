@@ -25,7 +25,7 @@ optional arguments:
                         Extract calls exceeding thresholds
   -s, --span MINS       Time span for threshold count
   -w, --whitelist FILE  Use a whitelist configured in FILE
-  -d, --days DAYS       When using whitelist, number of DAYS
+  -D, --days DAYS       When using whitelist, number of DAYS
                         to keep an entry in the automatic
                         whitelist (default 14)
 ```
@@ -45,4 +45,4 @@ The -t flag accepts a regular expression to match against the To: header. This i
 
 The -x flag changes the tool's behavior to count the frequency of log entries selected for each calling number over a time period specified via the -s flag. The accepted values consist of the warning and critical thresholds over the specified time span. When combined with the -m flag to select INVITE events, one can use this mode to report on excessive call usage.
 
-The -w flag supplements the -x flag through the use of whitelisting. The file specified in FILE will contain a JSON object pointing to two whitelist files for the automatic and manual whitelist files (also JSON format). The automatic whitelist will populate automatically with entries reported by the -x flag and will expire after the number of days specified with the -d flag (default 14 days).
+The -w flag supplements the -x flag through the use of whitelisting. The file specified in FILE will contain a JSON object pointing to two whitelist files for the automatic and manual whitelist files (also JSON format). The automatic whitelist will populate automatically with entries reported by the -x flag and will expire after the number of days specified with the -D flag (default 14 days).

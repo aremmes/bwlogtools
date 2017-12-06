@@ -77,7 +77,7 @@ optional arguments:
                         Extract calls exceeding thresholds
   -s, --span MINS       Time span for threshold count
   -w, --whitelist FILE  Use a whitelist configured in FILE
-  -d, --days DAYS       When using whitelist, number of DAYS
+  -D, --days DAYS       When using whitelist, number of DAYS
                         to keep an entry in the automatic
                         whitelist (default 14)
 """
