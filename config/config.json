@@ -1,4 +1,5 @@
 {
     "awl_path": "./config/awl.json",
-    "mwl_path": "./config/mwl.json"
+    "mwl_path": "./config/mwl.json",
+    "ovr_path": "./config/ovr.json"
 }

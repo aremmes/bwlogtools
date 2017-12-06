@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import json
-import datetime
 
 class WhiteList:
     def __init__( self, path ):
@@ -40,10 +39,7 @@ class WhiteList:
         return k in self.whitelist
 
     def cleanup( self, comp ):
-        expireds = list()
-        for k in self.whitelist:
-            if comp( self.whitelist[k] ):
-                expireds.append( k )
+        expireds = [ k for k in self.whitelist if comp( self.whitelist[k] ) ]
         for k in expireds:
             self.whitelist.pop( k )
 

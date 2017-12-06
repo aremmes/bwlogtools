@@ -12,7 +12,6 @@ import os.path
 import re
 import sys
 import json
-from itertools import groupby
 from datetime import date, datetime, timedelta
 import time
 import getopt
@@ -48,11 +47,11 @@ def test_call_thresholds( siplog, warnthres, critthres, spanmins ):
     count = count_by_range( siplog, log.datetime - span, log.datetime )
     if count >= warnthres and count < critthres:
       if level != 'warn':
-        events.append( ('warn', log.datetime) )
+        events.append( ('warn', log.datetime, count) )
       level = 'warn'
     elif count >= critthres:
       if level != 'crit':
-        events.append( ('crit', log.datetime) )
+        events.append( ('crit', log.datetime, count) )
       level = 'crit'
     else:
       level = None
@@ -133,17 +132,19 @@ def init_whitelists( wl_config ):
 
   awl = WhiteList( config['awl_path'] )
   mwl = WhiteList( config['mwl_path'] )
+  ovr = WhiteList( config['ovr_path'] )
   today = date.today()
   comp = lambda v: datetime.strptime( v, "%Y-%m-%d" ).date() <= date.today()
   awl.cleanup( comp )
   mwl.cleanup( comp )
   mwl.save_list()
-  return ( awl, mwl )
+  return ( awl, mwl, ovr )
 
 def main(argv):
   args = parse_argv()
   awl = None
   mwl = None
+  ovr = None
   
   if not os.path.isfile(args['XSLog']): 
     print("ERROR:  Cannot open XSLog: %s" % args['XSLog'])
@@ -151,7 +152,7 @@ def main(argv):
     sys.exit()
 
   if 'whitelist' in args:
-    ( awl, mwl ) = init_whitelists( args['whitelist'] )
+    ( awl, mwl, ovr ) = init_whitelists( args['whitelist'] )
 
   try:
     xslog = XSLog(str(args['XSLog']))
@@ -174,10 +175,11 @@ def main(argv):
     tempwl = list()
     fortnight = date.today() + timedelta( days = 14 if not 'days' in args else args['days'] )
     for tn in bycaller:
-      for ( level, evttime ) in test_call_thresholds( bycaller[tn], warnthres, critthres, spanmins ):
+      ( wt, ct ) = ( warnthres, critthres ) if ovr == None or not ovr.exists( tn ) else tuple(map(int, ovr.get(tn).split(":")))
+      for ( level, evttime, count ) in test_call_thresholds( bycaller[tn], wt, ct, spanmins ):
         if 'whitelist' in args:
           if not awl.exists( tn ) and not mwl.exists( tn ):
-            print( "{0}\t{1}\t{2}".format( tn, level, evttime ) )
+            print( "{0}\t{1}\t{2}\t{3}".format( tn, level, evttime, count ) )
             tempwl.append( tn )
         else:
           print( "{0}\t{1}\t{2}".format( tn, level, evttime ) )
