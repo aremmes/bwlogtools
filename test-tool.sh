@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DIR=/home/mcallist/bwlogtools
+DIR=$(pwd)
 DATESTR=`date "+%Y%m%d%H%M%S"`
-COMBINED=/var/tmp/combined-${DATESTR}.txt
+COMBINED=${DIR}/xslog-combined.txt
 NETWORK_SERVER=10.0.12.20
 
 # International and suspicious NANP area codes to include in the regex to match
@@ -20,8 +20,8 @@ INTL_DIAL_REGEX="(?:(?:\+|011|00)[2-9])"
 # Match all international (NANP and non-NANP) numbers
 SIPUSER_REGEX="(?:${INTL_DIAL_REGEX}|${NANP_REGEX})"
 
-TO_HDR_REGEX="<sip:${SIPUSER_REGEX}\d+@${NETWORK_SERVER}"
-TO_HDR_DOM_REGEX="<sip:${DOMNPA_REGEX}\d+@${NETWORK_SERVER}"
+TO_HDR_REGEX="<?sip:${SIPUSER_REGEX}\d+@${NETWORK_SERVER}"
+TO_HDR_DOM_REGEX="<?sip:${DOMNPA_REGEX}\d+@${NETWORK_SERVER}"
 
 SPAN=60 # in minutes for rate testing
 WARN=10
@@ -61,15 +61,15 @@ Check each number individually as it may represent different customers.
 
 EOF
 
-echo > ${COMBINED}
-for log in $(${DIR}/log_fisher.py); do
-    cat $log >> ${COMBINED}
-done
-
-if [ ! -e ${COMBINED} ]; then
-    # Nothing to do
-    exit
-fi
+#echo > ${COMBINED}
+#for log in $(${DIR}/log_fisher.py); do
+#    cat $log >> ${COMBINED}
+#done
+#
+#if [ ! -e ${COMBINED} ]; then
+#    # Nothing to do
+#    exit
+#fi
 
 touch ${FRAUDLIST_FILE}
 nice ${DIR}/bwfraud.py -m "^INVITE ${TO_HDR_REGEX}" -d OUT -s ${SPAN} \
@@ -78,8 +78,7 @@ nice ${DIR}/bwfraud.py -m "^INVITE ${TO_HDR_DOM_REGEX}" -d OUT -s $(( SPAN * 2 )
     -x ${WARN}:${CRIT} -w ${WL_CONFIG} -D ${WL_DAYS} ${COMBINED} >> ${FRAUDLIST_FILE}
 COUNT=$(wc -l ${FRAUDLIST_FILE} | cut -d ' ' -f 1)
 if [ $COUNT -gt 0 ]; then
-    cat ${FRAUDLIST_FILE} >> ${MESSAGE_FILE}
-    mail -s "${SUBJECT}" -c ${CC} ${RECIPIENT} < ${MESSAGE_FILE}
+    cat ${MESSAGE_FILE} ${FRAUDLIST_FILE}
 fi
 # Clean all the things
-rm -f ${MESSAGE_FILE} ${FRAUDLIST_FILE} ${COMBINED}
+rm -f ${MESSAGE_FILE} ${FRAUDLIST_FILE} # ${COMBINED}
