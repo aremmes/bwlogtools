@@ -113,28 +113,12 @@ class XSLog(object):
   def __getitem__(self, key):
     return self.logs[key]
 
-  def siplogs(self, regex=None, dir=None, to=None):
-    toreg = "<sip:{0}"
+  def siplogs( self, filterfunc=None ):
     siplogs = [log for log in self.logs if log.type() == 'SipXSLogEntry']
-    if   regex == None and dir == None and to == None: 
-      return siplogs
-    elif regex != None and dir == None and to == None:
-      return [siplog for siplog in siplogs if regex in siplog.sipmsg or re.search(regex, siplog.sipmsg)]
-    elif regex == None and dir != None and to == None:
-      return [siplog for siplog in siplogs if siplog.direction == dir]
-    elif regex == None and dir == None and to != None: 
-      return [siplog for siplog in siplogs if re.search(toreg.format(to), siplog.headers['To'])]
-    elif regex != None and dir == None and to != None:
-      return [siplog for siplog in siplogs if regex in siplog.sipmsg or re.search(regex, siplog.sipmsg)]
-    elif regex == None and dir != None and to != None:
-      return [siplog for siplog in siplogs if siplog.direction == dir
-        and re.search(toreg.format(to), siplog.headers['To'])]
-    elif regex != None and dir != None and to == None:
-      return [siplog for siplog in siplogs if (regex in siplog.sipmsg or re.search(regex, siplog.sipmsg))
-        and siplog.direction == dir ]
+    if filterfunc != None:
+        return filter( filterfunc, siplogs )
     else:
-      return [siplog for siplog in siplogs if (regex in siplog.sipmsg or re.search(regex, siplog.sipmsg))
-        and siplog.direction == dir and re.search(toreg.format(to), siplog.headers['To'])]
+        return siplogs
 
   def parser(self, fn):
     groups = []

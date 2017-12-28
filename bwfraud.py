@@ -32,19 +32,13 @@ def group_by_caller(siplogs):
       bycaller[tn].append( log )
   return bycaller
 
-def count_by_range( logs, start, end ):
-  count = 0
-  for log in logs:
-    if log.datetime >= start and log.datetime <= end:
-      count += 1
-  return count
-
 def test_call_thresholds( siplog, warnthres, critthres, spanmins ):
   span = timedelta(minutes=spanmins)
   events = list()
   level = None
   for log in siplog:
-    count = count_by_range( siplog, log.datetime - span, log.datetime )
+    filtfunc = lambda x: x.datetime >= log.datetime - span and x.datetime <= log.datetime
+    count = len( filter( filtfunc, siplog ) )
     if count >= warnthres and count < critthres:
       if level != 'warn':
         events.append( ('warn', log.datetime, count) )
@@ -160,9 +154,11 @@ def main(argv):
     print("ERROR: unable to parse XSLog: %s" % args['XSLog'])
     sys.exit()
 
-  siplogs = xslog.siplogs(args['match'] if 'match' in args else None,
-    args['dir'] if 'dir' in args else None,
-    args['to'] if 'to' in args else None)
+  filter_siplogs = lambda x: ( re.search( args['match'], x.sipmsg ) if 'match' in args else True ) \
+    and ( x.direction == args['dir'] if 'dir' in args else True ) \
+    and ( re.search( args['to'], x.headers['To'] ) if 'to' in args else True )
+
+  siplogs = xslog.siplogs( filter_siplogs )
   bycaller = group_by_caller( siplogs )
 
   if 'xtract' in args:
