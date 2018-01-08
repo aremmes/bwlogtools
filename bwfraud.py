@@ -127,8 +127,8 @@ def init_whitelists( wl_config ):
   awl = WhiteList( config['awl_path'] )
   mwl = WhiteList( config['mwl_path'] )
   ovr = WhiteList( config['ovr_path'] )
-  today = date.today()
-  comp = lambda v: datetime.strptime( v, "%Y-%m-%d" ).date() <= date.today()
+  today = datetime.today()
+  comp = lambda v: datetime.strptime( v, "%Y-%m-%dT%H:%M:%S.%f" ) <= datetime.today()
   awl.cleanup( comp )
   mwl.cleanup( comp )
   mwl.save_list()
@@ -169,7 +169,7 @@ def main(argv):
     ( warnthres, critthres ) = args['xtract']
     spanmins = args['span']
     tempwl = list()
-    fortnight = date.today() + timedelta( hours = 3 if not 'hours' in args else args['hours'] )
+    fortnight = datetime.today() + timedelta( hours = 3 if not 'hours' in args else args['hours'] )
     for tn in bycaller:
       ( wt, ct ) = ( warnthres, critthres ) if ovr == None or not ovr.exists( tn ) else tuple(map(int, ovr.get(tn).split(":")))
       for ( level, evttime, count ) in test_call_thresholds( bycaller[tn], wt, ct, spanmins ):

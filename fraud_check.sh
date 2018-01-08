@@ -73,9 +73,9 @@ fi
 
 touch ${FRAUDLIST_FILE}
 nice ${DIR}/bwfraud.py -m "^INVITE ${TO_HDR_REGEX}" -d OUT -s ${SPAN} \
-    -x ${WARN}:${CRIT} -w ${WL_CONFIG} -D ${WL_HOURS} ${COMBINED} > ${FRAUDLIST_FILE}
+    -x ${WARN}:${CRIT} -w ${WL_CONFIG} -H ${WL_HOURS} ${COMBINED} > ${FRAUDLIST_FILE}
 nice ${DIR}/bwfraud.py -m "^INVITE ${TO_HDR_DOM_REGEX}" -d OUT -s $(( SPAN * 2 )) \
-    -x ${WARN}:${CRIT} -w ${WL_CONFIG} -D ${WL_HOURS} ${COMBINED} >> ${FRAUDLIST_FILE}
+    -x ${WARN}:${CRIT} -w ${WL_CONFIG} -H ${WL_HOURS} ${COMBINED} >> ${FRAUDLIST_FILE}
 COUNT=$(wc -l ${FRAUDLIST_FILE} | cut -d ' ' -f 1)
 if [ $COUNT -gt 0 ]; then
     cat ${FRAUDLIST_FILE} >> ${MESSAGE_FILE}
