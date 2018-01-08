@@ -18,7 +18,7 @@ import getopt
 from XSLog import XSLogEntry, GenericXSLogEntry, SipXSLogEntry, XSLog
 from WhiteList import WhiteList
 
-VERSION=.03
+VERSION=.04
 
 def group_by_caller(siplogs):
   bycaller = dict()
@@ -71,17 +71,17 @@ optional arguments:
                         Extract calls exceeding thresholds
   -s, --span MINS       Time span for threshold count
   -w, --whitelist FILE  Use a whitelist configured in FILE
-  -D, --days DAYS       When using whitelist, number of DAYS
+  -H, --hours HOURS     When using whitelist, number of HOURS
                         to keep an entry in the automatic
-                        whitelist (default 14)
+                        whitelist (default 3)
 """
   print(usage_str)
 
 def parse_argv():
   arg_dict = {}
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:x:s:w:D:",
-      ["help","match=","dir=","to=","xtract=","span=", "whitelist=", "days="])
+    opts, args = getopt.getopt(sys.argv[1:], "hm:d:t:x:s:w:H:",
+      ["help","match=","dir=","to=","xtract=","span=", "whitelist=", "hours="])
   except getopt.GetoptError:
     print("Error parsing command line options:")
     usage()
@@ -103,8 +103,8 @@ def parse_argv():
       arg_dict['span'] = int(a)
     elif o in ("-w", "--whitelist"):
       arg_dict['whitelist'] = a
-    elif o in ("-D", "--days") and re.match( "\d+", a ):
-      arg_dict['days'] = int(a)
+    elif o in ("-H", "--hours") and re.match( "\d+", a ):
+      arg_dict['hours'] = int(a)
     else:
       assert False, "unhandled option"
 
@@ -169,7 +169,7 @@ def main(argv):
     ( warnthres, critthres ) = args['xtract']
     spanmins = args['span']
     tempwl = list()
-    fortnight = date.today() + timedelta( days = 14 if not 'days' in args else args['days'] )
+    fortnight = date.today() + timedelta( hours = 3 if not 'hours' in args else args['hours'] )
     for tn in bycaller:
       ( wt, ct ) = ( warnthres, critthres ) if ovr == None or not ovr.exists( tn ) else tuple(map(int, ovr.get(tn).split(":")))
       for ( level, evttime, count ) in test_call_thresholds( bycaller[tn], wt, ct, spanmins ):
