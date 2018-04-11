@@ -15,6 +15,7 @@ import json
 from datetime import date, datetime, timedelta
 import time
 import getopt
+import logging
 from XSLog import XSLogEntry, GenericXSLogEntry, SipXSLogEntry, XSLog
 from WhiteList import WhiteList
 
@@ -140,6 +141,10 @@ def main(argv):
   mwl = None
   ovr = None
   
+  logger = logging.getLogger( 'Logger' )
+  logger.setLevel( logging.INFO )
+  logger.addHandler( logging.handlers.SysLogHandler(address = '/dev/log') )
+
   if not os.path.isfile(args['XSLog']): 
     print("ERROR:  Cannot open XSLog: %s" % args['XSLog'])
     usage()
@@ -148,6 +153,7 @@ def main(argv):
   if 'whitelist' in args:
     ( awl, mwl, ovr ) = init_whitelists( args['whitelist'] )
 
+  starttime = datetime.today()
   try:
     xslog = XSLog(str(args['XSLog']))
   except:
@@ -160,6 +166,7 @@ def main(argv):
 
   siplogs = xslog.siplogs( filter_siplogs )
   bycaller = group_by_caller( siplogs )
+  warncount = 0
 
   if 'xtract' in args:
     if 'span' not in args:
@@ -169,7 +176,7 @@ def main(argv):
     ( warnthres, critthres ) = args['xtract']
     spanmins = args['span']
     tempwl = list()
-    fortnight = datetime.today() + timedelta( hours = 3 if not 'hours' in args else args['hours'] )
+    fortnight = starttime + timedelta( hours = 3 if not 'hours' in args else args['hours'] )
     for tn in bycaller:
       ( wt, ct ) = ( warnthres, critthres ) if ovr == None or not ovr.exists( tn ) else tuple(map(int, ovr.get(tn).split(":")))
       for ( level, evttime, count ) in test_call_thresholds( bycaller[tn], wt, ct, spanmins ):
@@ -177,8 +184,10 @@ def main(argv):
           if not awl.exists( tn ) and not mwl.exists( tn ):
             print( "{0}\t{1}\t{2}\t{3}".format( tn, level, evttime, count ) )
             tempwl.append( tn )
+            warncount += 1
         else:
           print( "{0}\t{1}\t{2}".format( tn, level, evttime ) )
+          warncount += 1
     if len( tempwl ) > 0:
       for tn in tempwl:
         if not awl.exists( tn ):
@@ -187,6 +196,11 @@ def main(argv):
   else:
     for tn in bycaller:
       print( "{0}\t{1}".format( tn, len( bycaller[tn] ) ) )
+
+  elapsed = datetime.today() - starttime
+  logmsg = "bwfraud.py processed {0} log entries, {1} matching entries, {2} callers, {3} reportable callers in {4}".format(
+    len( xslog.logs ), len( siplogs ), len( bycaller ), warncount, elapsed )
+  logger.info( logmsg )
 
 if __name__ == '__main__':
   main(sys.argv)
